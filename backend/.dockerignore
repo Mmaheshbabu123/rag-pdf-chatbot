@@ -1,0 +1,11 @@
+venv/
+__pycache__/
+*.pyc
+.env
+# Start the deployed app with a clean, empty knowledge base — users upload their
+# own PDFs. Keeps local test data and bundled books out of the public image.
+data/
+faiss_index/
+chats.db
+*.pdf
+inspect_db.py

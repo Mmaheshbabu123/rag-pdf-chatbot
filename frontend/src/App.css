@@ -166,6 +166,38 @@ main {
   font-style: italic;
 }
 
+.message-excerpts {
+  margin-top: 0.6rem;
+  font-size: 0.8rem;
+}
+
+.message-excerpts > summary {
+  cursor: pointer;
+  color: #2563eb;
+  font-weight: 600;
+  user-select: none;
+}
+
+.message-excerpts .excerpt {
+  margin: 0.6rem 0 0;
+  padding: 0.6rem 0.8rem;
+  background: #f8f9fa;
+  border-left: 3px solid #2563eb;
+  border-radius: 4px;
+  color: #333;
+  white-space: pre-wrap;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  line-height: 1.5;
+}
+
+.message-excerpts .excerpt-cite {
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: #2563eb;
+  margin-bottom: 0.4rem;
+  font-family: inherit;
+}
+
 .chat-input {
   display: flex;
   gap: 0.8rem;

@@ -3,6 +3,11 @@ import axios from 'axios';
 import Modal from './components/atoms/Modal';
 import './App.css';
 
+// Backend base URL. In production (Vercel) this is set via the VITE_API_URL
+// environment variable to the deployed Hugging Face Space; locally it falls
+// back to the dev server.
+const API = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+
 function App() {
   const [file, setFile] = useState(null);
   const [uploading, setUploading] = useState(false);
@@ -27,7 +32,7 @@ function App() {
 
   const fetchFiles = async () => {
     try {
-      const response = await axios.get('http://localhost:8000/files');
+      const response = await axios.get(`${API}/files`);
       setIndexedFiles(response.data.files);
     } catch (err) {
       console.error("Failed to fetch files", err);
@@ -36,7 +41,7 @@ function App() {
 
   const fetchSessions = async () => {
     try {
-      const response = await axios.get('http://localhost:8000/sessions');
+      const response = await axios.get(`${API}/sessions`);
       setSessions(response.data);
     } catch (err) {
       console.error("Failed to fetch sessions", err);
@@ -45,7 +50,7 @@ function App() {
 
   const loadSession = async (sessionId) => {
     try {
-      const response = await axios.get(`http://localhost:8000/sessions/${sessionId}`);
+      const response = await axios.get(`${API}/sessions/${sessionId}`);
       setMessages(response.data);
       setCurrentSessionId(sessionId);
       setActiveSources([]); // Reset highlights
@@ -64,7 +69,7 @@ function App() {
     e.stopPropagation(); // Prevent loading the session
     if (!window.confirm("Delete this chat history?")) return;
     try {
-      await axios.delete(`http://localhost:8000/sessions/${sessionId}`);
+      await axios.delete(`${API}/sessions/${sessionId}`);
       if (currentSessionId === sessionId) startNewChat();
       fetchSessions();
     } catch (err) {
@@ -80,7 +85,7 @@ function App() {
   const handleConfirmDelete = async () => {
     if (!fileToDelete) return;
     try {
-      await axios.delete(`http://localhost:8000/files/${fileToDelete}`);
+      await axios.delete(`${API}/files/${fileToDelete}`);
       setMessages((prev) => [...prev, { role: 'system', text: `Removed "${fileToDelete}" from knowledge base.` }]);
       fetchFiles();
     } catch (err) {
@@ -104,7 +109,7 @@ function App() {
     formData.append('file', file);
 
     try {
-      const response = await axios.post('http://localhost:8000/upload', formData);
+      const response = await axios.post(`${API}/upload`, formData);
       setStatus(response.data.message);
       setMessages((prev) => [...prev, { role: 'system', text: `Added "${file.name}" to knowledge base.` }]);
       setTimeout(() => fetchFiles(), 500);
@@ -127,22 +132,23 @@ function App() {
     setActiveSources([]);
 
     try {
-      const response = await axios.post('http://localhost:8000/chat', { 
+      const response = await axios.post(`${API}/chat`, {
         text: question,
         session_id: currentSessionId 
       });
       
-      const { answer, sources, session_id } = response.data;
-      
+      const { answer, sources, excerpts, session_id } = response.data;
+
       if (!currentSessionId) {
         setCurrentSessionId(session_id);
         fetchSessions();
       }
 
-      setMessages((prev) => [...prev, { 
-        role: 'bot', 
-        text: answer, 
-        sources: sources 
+      setMessages((prev) => [...prev, {
+        role: 'bot',
+        text: answer,
+        sources: sources,
+        excerpts: excerpts
       }]);
       
       // Smart highlighting logic
@@ -222,6 +228,19 @@ function App() {
                   <div className="message-sources">
                     Sources: {msg.sources.join(', ')}
                   </div>
+                )}
+                {msg.excerpts && msg.excerpts.length > 0 && (
+                  <details className="message-excerpts">
+                    <summary>📄 Show exact text from the PDF ({msg.excerpts.length})</summary>
+                    {msg.excerpts.map((ex, j) => (
+                      <blockquote key={j} className="excerpt">
+                        <div className="excerpt-cite">
+                          {ex.source}{ex.page ? ` — page ${ex.page}` : ''}
+                        </div>
+                        {ex.text}
+                      </blockquote>
+                    ))}
+                  </details>
                 )}
               </div>
             ))}

@@ -1,0 +1,12 @@
+# Render Blueprint — deploys the FastAPI backend as a free Docker web service.
+# In the Render dashboard: New + → Blueprint → connect this repo → Apply.
+services:
+  - type: web
+    name: rag-pdf-chatbot
+    runtime: docker
+    rootDir: backend
+    plan: free
+    healthCheckPath: /files
+    envVars:
+      - key: GROQ_API_KEY
+        sync: false   # you'll paste your Groq key in the dashboard on first deploy

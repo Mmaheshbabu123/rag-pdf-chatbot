@@ -103,14 +103,21 @@ async def chat(question: Question, db: Session = Depends(get_db)):
         db.add(user_msg)
         
         # 4. Save Bot Message
-        bot_msg = ChatMessage(session_id=session_id, role="bot", text=response["answer"], sources=response["sources"])
+        bot_msg = ChatMessage(
+            session_id=session_id,
+            role="bot",
+            text=response["answer"],
+            sources=response["sources"],
+            excerpts=response.get("excerpts", []),
+        )
         db.add(bot_msg)
-        
+
         db.commit()
-        
+
         return {
             "answer": response["answer"],
             "sources": response["sources"],
+            "excerpts": response.get("excerpts", []),
             "session_id": session_id
         }
     except Exception as e:
@@ -118,4 +125,7 @@ async def chat(question: Question, db: Session = Depends(get_db)):
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    # Hugging Face Spaces (and most hosts) inject the port via $PORT; HF expects
+    # 7860. Fall back to 8000 for local development.
+    port = int(os.environ.get("PORT", 8000))
+    uvicorn.run(app, host="0.0.0.0", port=port)

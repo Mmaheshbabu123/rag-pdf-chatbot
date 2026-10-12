@@ -23,10 +23,19 @@ class ChatMessage(Base):
     role = Column(String) # 'user' or 'bot' or 'system'
     text = Column(Text)
     sources = Column(JSON, nullable=True)
+    excerpts = Column(JSON, nullable=True)  # verbatim PDF passages + page numbers
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
     session = relationship("ChatSession", back_populates="messages")
 
 Base.metadata.create_all(bind=engine)
+
+# Lightweight migration: add the excerpts column to pre-existing databases.
+from sqlalchemy import inspect, text as _sql_text
+_existing_cols = [c["name"] for c in inspect(engine).get_columns("chat_messages")]
+if "excerpts" not in _existing_cols:
+    with engine.connect() as _conn:
+        _conn.execute(_sql_text("ALTER TABLE chat_messages ADD COLUMN excerpts JSON"))
+        _conn.commit()
 
 def get_db():
     db = SessionLocal()
