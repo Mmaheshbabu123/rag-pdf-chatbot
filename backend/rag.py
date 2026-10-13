@@ -17,7 +17,15 @@ def get_embeddings():
     # than sentence-transformers/PyTorch: same bge-small-en-v1.5 model and quality,
     # but a ~250MB footprint instead of ~1GB, so it fits on free hosting tiers.
     # fastembed normalizes bge embeddings internally, so cosine search works.
-    return FastEmbedEmbeddings(model_name="BAAI/bge-small-en-v1.5")
+    #
+    # batch_size/threads kept small on purpose: the default batch of 256 spikes
+    # memory past the 512MB free-tier limit on large PDFs (OOM -> 502). A small
+    # batch keeps peak memory low so big documents process without crashing.
+    return FastEmbedEmbeddings(
+        model_name="BAAI/bge-small-en-v1.5",
+        batch_size=16,
+        threads=1,
+    )
 
 # --- Noise filtering -------------------------------------------------------
 # Front matter (ToC/preface), bibliographies and back-of-book indexes are dense
@@ -71,21 +79,30 @@ def process_pdf_and_store(file_path: str):
 
     # Drop front-matter / references / index chunks so they don't pollute search.
     chunks = [c for c in chunks if not _is_noise_chunk(c)]
-    
+    del documents  # free the raw pages; we only need the chunks from here on
+
     # Create or Load Embeddings + Store
     embeddings = get_embeddings()
-    
+
     if os.path.exists(FAISS_INDEX_PATH):
-        # Load existing index and add new chunks
         vectorstore = FAISS.load_local(FAISS_INDEX_PATH, embeddings, allow_dangerous_deserialization=True)
-        vectorstore.add_documents(chunks)
     else:
-        # Create a new index
-        vectorstore = FAISS.from_documents(chunks, embeddings)
-    
+        vectorstore = None
+
+    # Add chunks in small batches rather than all at once. On the 512MB free tier
+    # embedding a whole book in one shot spikes memory and the worker is OOM-killed
+    # (shows up as a 502). Batching keeps peak memory flat regardless of PDF size.
+    BATCH = 64
+    for i in range(0, len(chunks), BATCH):
+        batch = chunks[i:i + BATCH]
+        if vectorstore is None:
+            vectorstore = FAISS.from_documents(batch, embeddings)
+        else:
+            vectorstore.add_documents(batch)
+
     # Save the updated index locally
     vectorstore.save_local(FAISS_INDEX_PATH)
-    
+
     return len(chunks)
 
 def ask_question(question: str):
